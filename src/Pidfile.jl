@@ -186,7 +186,7 @@ end
 Create a new a file for read-write advisory-exclusive access,
 blocking until it can succeed.
 
-For a description of the keyword arguments, see [`lock`](@ref).
+For a description of the keyword arguments, see [`mkpidlock`](@ref).
 """
 function open_exclusive(path::String;
         mode::Integer = 0o444 #= read-only =#,
@@ -223,6 +223,11 @@ function open_exclusive(path::String;
     end
 end
 
+"""
+    close(lock::LockMonitor)
+
+Release a pidfile lock.
+"""
 function Base.close(lock::LockMonitor)
     isopen(lock.fd) || return false
     havelock = samefile(stat(lock.fd), stat(lock.path))

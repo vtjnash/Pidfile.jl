@@ -1,4 +1,4 @@
-# Pidfile
+See documentation at [https://vtjnash.github.io/Pidfile.jl/](https://vtjnash.github.io/Pidfile.jl/).
 
 Build Status:
 [![travis][travis-img]](https://travis-ci.org/vtjnash/Pidfile.jl)
