@@ -109,7 +109,7 @@ end
 
     # release the pidfile after a short delay
     deleted = false
-    rmtask = @schedule begin
+    rmtask = @async begin
         sleep(3)
         rm("pidfile")
         deleted = true
@@ -135,7 +135,7 @@ end
         close(f2)
     end
     rm("pidfile")
-    wait(rmtask)
+    fetch(rmtask)
 
     # now test with a long delay and other non-default options
     f = open_exclusive("pidfile", mode = 0o000)::File
@@ -145,7 +145,7 @@ end
         close(f)
     end
     deleted = false
-    rmtask = @schedule begin
+    rmtask = @async begin
         sleep(8)
         rm("pidfile")
         deleted = true
@@ -165,7 +165,7 @@ end
         close(f2)
     end
     rm("pidfile")
-    wait(rmtask)
+    fetch(rmtask)
 end
 
 @testset "open_exclusive: break lock" begin
@@ -192,13 +192,13 @@ end
 end
 
 @testset "open_exclusive: other errors" begin
-    @test_throws(thrown_type(Base.UVError("open", Base.UV_ENOENT)),
+    @test_throws(thrown_type(Base.IOError("open: no such file or directory (ENOENT)", Base.UV_ENOENT)),
                  open_exclusive("nonexist/folder"))
 end
 
 @testset "mkpidlock" begin
     lockf = mkpidlock("pidfile")
-    waittask = @schedule begin
+    waittask = @async begin
         sleep(3)
         cd(homedir()) do
             return close(lockf)
@@ -206,7 +206,7 @@ end
     end
     t = @elapsed lockf1 = mkpidlock("pidfile")
     @test t > 2
-    @test istaskdone(waittask) && wait(waittask)
+    @test istaskdone(waittask) && fetch(waittask)
     @test !close(lockf)
     finalize(lockf1)
     t = @elapsed lockf2 = mkpidlock("pidfile")
