@@ -135,7 +135,7 @@ end
         close(f2)
     end
     rm("pidfile")
-    fetch(rmtask)
+    wait(rmtask)
 
     # now test with a long delay and other non-default options
     f = open_exclusive("pidfile", mode = 0o000)::File
@@ -165,7 +165,7 @@ end
         close(f2)
     end
     rm("pidfile")
-    fetch(rmtask)
+    wait(rmtask)
 end
 
 @testset "open_exclusive: break lock" begin
