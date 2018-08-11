@@ -17,7 +17,7 @@ end
 end
 
 using Base:
-    UVError, UV_EEXIST, UV_ESRCH,
+    IOError, UV_EEXIST, UV_ESRCH,
     Process
 
 using Base.Filesystem:
@@ -125,7 +125,7 @@ function parse_pidfile(path::String)
             close(existing)
         end
     catch ex
-        isa(ex, EOFError) || isa(ex, UVError) || rethrow(ex)
+        isa(ex, EOFError) || isa(ex, IOError) || rethrow(ex)
         return (Cuint(0), "", 0.0)
     end
 end
@@ -175,7 +175,7 @@ function tryopen_exclusive(path::String, mode::Integer = 0o444)
     try
         return open(path, JL_O_RDWR | JL_O_CREAT | JL_O_EXCL, mode)
     catch ex
-        (isa(ex, UVError) && ex.code == UV_EEXIST) || rethrow(ex)
+        (isa(ex, IOError) && ex.code == UV_EEXIST) || rethrow(ex)
     end
     return nothing
 end
@@ -202,7 +202,7 @@ function open_exclusive(path::String;
         t = @async try
             watch_file(path, poll_interval)
         catch ex
-            isa(ex, UVError) || rethrow(ex)
+            isa(ex, IOError) || rethrow(ex)
             sleep(poll_interval) # if the watch failed, convert to just doing a sleep
         end
         # now try again to create it
@@ -217,7 +217,7 @@ function open_exclusive(path::String;
             try
                 rm(path)
             catch ex
-                isa(ex, UVError) || rethrow(ex)
+                isa(ex, IOError) || rethrow(ex)
             end
         end
     end
