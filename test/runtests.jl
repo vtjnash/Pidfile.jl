@@ -1,13 +1,7 @@
 using Pidfile
 
-if VERSION < v"0.7.0-DEV.2005"
-    using Base.Test
-    thrown_type(x::Exception) = typeof(x)
-    thrown_type(x::Type) = x
-else
-    using Test
-    thrown_type(x) = x
-end
+using Test
+thrown_type(x) = x
 
 using Base.Filesystem: File
 using Pidfile: iswindows,
@@ -76,11 +70,7 @@ end
 
     @testset "parse_pidfile" begin
         age = 0
-        if VERSION < v"0.7-"
-            @test parse_pidfile("nonexist") == (Cuint(0), "", 0.0)
-        else
-            @test parse_pidfile("nonexist") === (Cuint(0), "", 0.0)
-        end
+        @test parse_pidfile("nonexist") === (Cuint(0), "", 0.0)
         open(io -> write_pidfile(io, pid), "pidfile", "w")
         pid2, host2, age2 = parse_pidfile("pidfile")
         @test pid == pid2
