@@ -1,36 +1,19 @@
 __precompile__()
 module Pidfile
 
-if VERSION < v"0.7.0-DEV.1053"
-using Compat # defines read(io, String)
-end
 
 export mkpidlock
 
-if VERSION < v"0.7.0-DEV.3107"
-macro warn(msg)
-    return :(warn($(esc(msg))))
-end
-macro info(msg)
-    return :(info($(esc(msg))))
-end
-end
-
 using Base:
-    UVError, UV_EEXIST, UV_ESRCH,
+    IOError, UV_EEXIST, UV_ESRCH,
     Process
 
 using Base.Filesystem:
     File, open, JL_O_CREAT, JL_O_RDWR, JL_O_RDONLY, JL_O_EXCL,
     samefile
 
-if VERSION < v"0.7.0-DEV.914"
-using Base.Filesystem: watch_file
-const iswindows = Sys.is_windows
-else
 using FileWatching: watch_file
 using Base.Sys: iswindows
-end
 
 """
     mkpidlock(at::String, [pid::Cint, proc::Process]; kwopts...)
@@ -60,11 +43,7 @@ mutable struct LockMonitor
         try
             write_pidfile(fd, pid)
             lock = new(at, fd)
-            if VERSION < v"0.7.0-DEV.2562"
-                finalizer(lock, close)
-            else
-                finalizer(close, lock)
-            end
+            finalizer(close, lock)
         catch ex
             close(fd)
             rm(at)
@@ -107,9 +86,6 @@ function parse_pidfile(io::IO)
     fields = split(read(io, String), ' ', limit = 2)
     pid = tryparse(Cuint, fields[1])
     pid === nothing && (pid = Cuint(0))
-    if VERSION < v"0.7" && !isa(pid, Cuint)
-        pid = get(pid, Cuint(0))
-    end
     hostname = (length(fields) == 2) ? fields[2] : ""
     when = mtime(io)
     age = time() - when
@@ -125,7 +101,7 @@ function parse_pidfile(path::String)
             close(existing)
         end
     catch ex
-        isa(ex, EOFError) || isa(ex, UVError) || rethrow(ex)
+        isa(ex, EOFError) || isa(ex, IOError) || rethrow(ex)
         return (Cuint(0), "", 0.0)
     end
 end
@@ -175,7 +151,7 @@ function tryopen_exclusive(path::String, mode::Integer = 0o444)
     try
         return open(path, JL_O_RDWR | JL_O_CREAT | JL_O_EXCL, mode)
     catch ex
-        (isa(ex, UVError) && ex.code == UV_EEXIST) || rethrow(ex)
+        (isa(ex, IOError) && ex.code == UV_EEXIST) || rethrow(ex)
     end
     return nothing
 end
@@ -202,7 +178,7 @@ function open_exclusive(path::String;
         t = @async try
             watch_file(path, poll_interval)
         catch ex
-            isa(ex, UVError) || rethrow(ex)
+            isa(ex, IOError) || rethrow(ex)
             sleep(poll_interval) # if the watch failed, convert to just doing a sleep
         end
         # now try again to create it
@@ -217,7 +193,7 @@ function open_exclusive(path::String;
             try
                 rm(path)
             catch ex
-                isa(ex, UVError) || rethrow(ex)
+                isa(ex, IOError) || rethrow(ex)
             end
         end
     end

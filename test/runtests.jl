@@ -1,13 +1,7 @@
 using Pidfile
 
-if VERSION < v"0.7.0-DEV.2005"
-    using Base.Test
-    thrown_type(x::Exception) = typeof(x)
-    thrown_type(x::Type) = x
-else
-    using Test
-    thrown_type(x) = x
-end
+using Test
+thrown_type(x) = x
 
 using Base.Filesystem: File
 using Pidfile: iswindows,
@@ -76,11 +70,7 @@ end
 
     @testset "parse_pidfile" begin
         age = 0
-        if VERSION < v"0.7-"
-            @test parse_pidfile("nonexist") == (Cuint(0), "", 0.0)
-        else
-            @test parse_pidfile("nonexist") === (Cuint(0), "", 0.0)
-        end
+        @test parse_pidfile("nonexist") === (Cuint(0), "", 0.0)
         open(io -> write_pidfile(io, pid), "pidfile", "w")
         pid2, host2, age2 = parse_pidfile("pidfile")
         @test pid == pid2
@@ -109,7 +99,7 @@ end
 
     # release the pidfile after a short delay
     deleted = false
-    rmtask = @schedule begin
+    rmtask = @async begin
         sleep(3)
         rm("pidfile")
         deleted = true
@@ -145,7 +135,7 @@ end
         close(f)
     end
     deleted = false
-    rmtask = @schedule begin
+    rmtask = @async begin
         sleep(8)
         rm("pidfile")
         deleted = true
@@ -192,13 +182,13 @@ end
 end
 
 @testset "open_exclusive: other errors" begin
-    @test_throws(thrown_type(Base.UVError("open", Base.UV_ENOENT)),
+    @test_throws(thrown_type(Base.IOError("open: no such file or directory (ENOENT)", Base.UV_ENOENT)),
                  open_exclusive("nonexist/folder"))
 end
 
 @testset "mkpidlock" begin
     lockf = mkpidlock("pidfile")
-    waittask = @schedule begin
+    waittask = @async begin
         sleep(3)
         cd(homedir()) do
             return close(lockf)
@@ -206,7 +196,7 @@ end
     end
     t = @elapsed lockf1 = mkpidlock("pidfile")
     @test t > 2
-    @test istaskdone(waittask) && wait(waittask)
+    @test istaskdone(waittask) && fetch(waittask)
     @test !close(lockf)
     finalize(lockf1)
     t = @elapsed lockf2 = mkpidlock("pidfile")
