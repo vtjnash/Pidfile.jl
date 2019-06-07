@@ -132,7 +132,7 @@ Helper function for open_exclusive for deciding if a pidfile is stale.
 function stale_pidfile(path::String, stale_age::Real)
     pid, hostname, age = parse_pidfile(path)
     if age < -stale_age
-        @warn "filesystem time skew detected on \"$path\""
+        @warn "filesystem time skew detected" path=path
     elseif age > stale_age
         if (age > stale_age * 25) || !isvalidpid(hostname, pid)
             return true
@@ -171,7 +171,7 @@ function open_exclusive(path::String;
     # fast-path: just try to open it
     file = tryopen_exclusive(path, mode)
     file === nothing || return file
-    @info "waiting for lock on pidfile at \"$path\""
+    @info "waiting for lock on pidfile" path=path
     # fall-back: wait for the lock
     while true
         # start the file-watcher prior to checking for the pidfile existence
@@ -189,7 +189,7 @@ function open_exclusive(path::String;
             # if the file seems stale, try to remove it before attempting again
             # set stale_age to zero so we won't attempt again, even if the attempt fails
             stale_age -= stale_age
-            @warn "attempting to remove probably stale pidfile at \"$path\""
+            @warn "attempting to remove probably stale pidfile" path=path
             try
                 rm(path)
             catch ex
