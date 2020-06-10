@@ -16,10 +16,11 @@ using FileWatching: watch_file
 using Base.Sys: iswindows
 
 """
-    mkpidlock(at::String, [pid::Cint, proc::Process]; kwopts...)
+    mkpidlock([f::Function], at::String, [pid::Cint, proc::Process]; kwopts...)
 
 Create a pidfile lock for the path "at" for the current process
-or the process identified by pid or proc.
+or the process identified by pid or proc.  Can take a function to execute once locked,
+for usage in `do` blocks, after which the lock will be automatically closed..
 
 Optional keyword arguments:
  - mode: file access mode (modified by the process umask). Defaults to world-readable.
@@ -54,6 +55,16 @@ mutable struct LockMonitor
 end
 
 mkpidlock(at::String; kwopts...) = mkpidlock(at, getpid(); kwopts...)
+mkpidlock(f::Function, at::String; kwopts...) = mkpidlock(f, at, getpid(); kwopts...)
+
+function mkpidlock(f::Function, at::String, pid::Cint; kwopts...)
+    lock = mkpidlock(at, pid; kwopts...)
+    try
+        f()
+    finally
+        close(lock)
+    end
+end
 
 # TODO: enable this when we update libuv
 #Base.getpid(proc::Process) = ccall(:uv_process_get_pid, Cint, (Ptr{Void},), proc.handle)

@@ -221,6 +221,23 @@ end
     if iswindows()
         rm("xpidfile")
     end
+
+    # Just for coverage's sake, run a test with do-block syntax
+    lock_times = Float64[]
+    t_loop = @async begin
+        for idx in 1:100
+            t = @elapsed mkpidlock("do_block_pidfile") do
+            end
+            sleep(0.01)
+            push!(lock_times, t)
+        end
+    end
+    mkpidlock("do_block_pidfile") do
+        sleep(3)
+    end
+    wait(t_loop)
+    @test maximum(lock_times) > 2
+    @test minimum(lock_times) < 1
 end
 
 end; end # cd(tempdir)
