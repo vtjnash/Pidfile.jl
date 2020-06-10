@@ -19,8 +19,8 @@ using Base.Sys: iswindows
     mkpidlock([f::Function], at::String, [pid::Cint, proc::Process]; kwopts...)
 
 Create a pidfile lock for the path "at" for the current process
-or the process identified by pid or proc.  Can take a function to execute once locked,
-for usage in `do` blocks, after which the lock will be automatically closed..
+or the process identified by pid or proc. Can take a function to execute once locked,
+for usage in `do` blocks, after which the lock will be automatically closed.
 
 Optional keyword arguments:
  - mode: file access mode (modified by the process umask). Defaults to world-readable.
@@ -60,7 +60,7 @@ mkpidlock(f::Function, at::String; kwopts...) = mkpidlock(f, at, getpid(); kwopt
 function mkpidlock(f::Function, at::String, pid::Cint; kwopts...)
     lock = mkpidlock(at, pid; kwopts...)
     try
-        f()
+        return f()
     finally
         close(lock)
     end
