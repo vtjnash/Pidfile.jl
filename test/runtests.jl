@@ -1,7 +1,6 @@
 using Pidfile
 
 using Test
-thrown_type(x) = x
 
 using Base.Filesystem: File
 using Pidfile: iswindows,
@@ -182,8 +181,8 @@ end
 end
 
 @testset "open_exclusive: other errors" begin
-    @test_throws(thrown_type(Base.IOError("open: no such file or directory (ENOENT)", Base.UV_ENOENT)),
-                 open_exclusive("nonexist/folder"))
+    error = @test_throws(Base.IOError, open_exclusive("nonexist/folder"))
+    @test error.value.code == Base.UV_ENOENT
 end
 
 @testset "mkpidlock" begin
