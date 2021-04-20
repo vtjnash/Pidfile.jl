@@ -23,11 +23,11 @@ or the process identified by pid or proc. Can take a function to execute once lo
 for usage in `do` blocks, after which the lock will be automatically closed.
 
 Optional keyword arguments:
- - mode: file access mode (modified by the process umask). Defaults to world-readable.
- - poll_interval: Specify the maximum time to between attempts (if watch_file doesn't work)
- - stale_age: Delete an existing pidfile (ignoring the lock) if its mtime is older than this.
+ - `mode`: file access mode (modified by the process umask). Defaults to world-readable.
+ - `poll_interval`: Specify the maximum time to between attempts (if `watch_file` doesn't work)
+ - `stale_age`: Delete an existing pidfile (ignoring the lock) if its mtime is older than this.
      The file won't be deleted until 25x longer than this if the pid in the file appears that it may be valid.
-     By default this is disabled (stale_age = 0), but a typical recommended value would be about 3-5x an
+     By default this is disabled (`stale_age` = 0), but a typical recommended value would be about 3-5x an
      estimated normal completion time.
 """
 function mkpidlock end
@@ -138,7 +138,7 @@ end
 """
     stale_pidfile(path::String, stale_age::Real) :: Bool
 
-Helper function for open_exclusive for deciding if a pidfile is stale.
+Helper function for `open_exclusive` for deciding if a pidfile is stale.
 """
 function stale_pidfile(path::String, stale_age::Real)
     pid, hostname, age = parse_pidfile(path)
