@@ -20,7 +20,8 @@ using Base.Sys: iswindows
 
 Create a pidfile lock for the path "at" for the current process
 or the process identified by pid or proc. Can take a function to execute once locked,
-for usage in `do` blocks, after which the lock will be automatically closed.
+for usage in `do` blocks, after which the lock will be automatically closed. If the lock fails
+and `wait_for_lock` is false, then PidLockFailedError is thrown.
 
 Optional keyword arguments:
  - `mode`: file access mode (modified by the process umask). Defaults to world-readable.
@@ -29,9 +30,13 @@ Optional keyword arguments:
      The file won't be deleted until 25x longer than this if the pid in the file appears that it may be valid.
      By default this is disabled (`stale_age` = 0), but a typical recommended value would be about 3-5x an
      estimated normal completion time.
+ - `wait_for_lock`: If true, block until we get the lock, if false, throw PidLockFailedError if lock fails.
 """
 function mkpidlock end
 
+struct PidLockFailedError <: Exception
+    msg::String
+end
 
 mutable struct LockMonitor
     path::String
@@ -170,20 +175,43 @@ end
 """
     open_exclusive(path::String; mode, poll_interval, stale_age) :: File
 
-Create a new a file for read-write advisory-exclusive access,
-blocking until it can succeed.
+Create a new a file for read-write advisory-exclusive access.
+If `wait_for_lock` is `false` then throw PidLockFailedError if the lock files
+otherwise block until we get the lock.
 
 For a description of the keyword arguments, see [`mkpidlock`](@ref).
 """
 function open_exclusive(path::String;
-        mode::Integer = 0o444 #= read-only =#,
-        poll_interval::Real = 10 #= seconds =#,
-        stale_age::Real = 0 #= disabled =#)
+                        mode::Integer = 0o444 #= read-only =#,
+                        poll_interval::Real = 10 #= seconds =#,
+                        wait_for_lock::Bool = true #= return on failure if false =#,
+                        stale_age::Real = 0 #= disabled =#)
     # fast-path: just try to open it
     file = tryopen_exclusive(path, mode)
     file === nothing || return file
-    @info "waiting for lock on pidfile" path=path
+    if !wait_for_lock
+        @info "not waiting for lock"
+        if file === nothing && stale_age > 0
+            if stale_age > 0 && stale_pidfile(path, stale_age)
+                @warn "attempting to remove probably stale pidfile" path=path
+                try
+                    rm(path)
+                catch ex
+                    isa(ex, IOError) || rethrow(ex)
+                end
+            end
+            file = tryopen_exclusive(path, mode)
+        end
+        if file === nothing
+            @warn "Tried and failed to get lock $path"
+            throw(PidLockFailedError("Failed to get lock file"))
+        else
+            return file
+        end
+    end
+    @info "waiting for lock on pidfile" path=path stale_age=stale_age wait_for_lock=wait_for_lock
     # fall-back: wait for the lock
+
     while true
         # start the file-watcher prior to checking for the pidfile existence
         t = @async try

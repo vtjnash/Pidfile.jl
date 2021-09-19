@@ -155,6 +155,40 @@ end
     end
     rm("pidfile")
     wait(rmtask)
+
+    @info "test for wait_for_lock == false cases"
+    f = open_exclusive("pidfile", wait_for_lock=false)
+    @test isfile("pidfile")
+    close(f)
+    rm("pidfile")
+
+    f = open_exclusive("pidfile")::File
+    deleted = false
+    rmtask = @async begin
+        sleep(2)
+        rm("pidfile")
+        deleted = true
+    end
+
+    t1 = time()
+    @test_throws Pidfile.PidLockFailedError open_exclusive("pidfile", wait_for_lock=false)
+    @test time() ≈ t1 atol=0.1
+
+    sleep(1)
+    @test !deleted
+
+    t1 = time()
+    @test_throws Pidfile.PidLockFailedError open_exclusive("pidfile", wait_for_lock=false)
+    @test time() ≈ t1 atol=0.1
+
+    sleep(2)
+    @test deleted
+    t = @elapsed f2 = open_exclusive("pidfile", wait_for_lock=false)::File
+    @test isfile("pidfile")
+    @test t ≈ 0 atol=0.1
+    close(f)
+    close(f2)
+    rm("pidfile")
 end
 
 @testset "open_exclusive: break lock" begin
@@ -193,6 +227,11 @@ end
             return close(lockf)
         end
     end
+
+    # mkpidlock with no waiting
+    t = @elapsed @test_throws Pidfile.PidLockFailedError mkpidlock("pidfile", wait_for_lock=false)
+    @test t ≈ 0 atol=0.1
+
     t = @elapsed lockf1 = mkpidlock("pidfile")
     @test t > 2
     @test istaskdone(waittask) && fetch(waittask)
