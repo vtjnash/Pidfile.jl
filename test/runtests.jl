@@ -25,6 +25,7 @@ old_umask = umask(0o002)
 try
     mktempdir() do dir
         cd(dir) do
+
 # now start tests definitions:
 
 @testset "validpid" begin
@@ -214,11 +215,19 @@ end
     rm("pidfile")
 end
 
-@testset "open_exclusive: other errors" begin
-    error = @test_throws(Base.IOError, open_exclusive("nonexist/folder"))
-    @test error.value.code == Base.UV_ENOENT
-end
+@testset "mkpidlock non-blocking stale lock break" begin
+    # mkpidlock with no waiting
+    lockf = mkpidlock("pidfile-2", wait_for_lock=false)
 
+    sleep(1)
+    t = @elapsed @test_throws Pidfile.PidLockFailedError mkpidlock("pidfile-2", wait_for_lock=false, stale_age=1, poll_interval=1)
+    @test t ≈ 0 atol=0.1
+
+    sleep(10)
+    t = @elapsed mkpidlock("pidfile-2", wait_for_lock=false, stale_age=.1, poll_interval=1)
+    @test t ≈ 0 atol=0.1
+end
+            
 @testset "mkpidlock" begin
     lockf = mkpidlock("pidfile")
     waittask = @async begin

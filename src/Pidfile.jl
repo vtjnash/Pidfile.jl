@@ -203,13 +203,11 @@ function open_exclusive(path::String;
             file = tryopen_exclusive(path, mode)
         end
         if file === nothing
-            @warn "Tried and failed to get lock $path"
             throw(PidLockFailedError("Failed to get lock file"))
         else
             return file
         end
     end
-    @info "waiting for lock on pidfile" path=path stale_age=stale_age wait_for_lock=wait_for_lock
     # fall-back: wait for the lock
 
     while true
