@@ -190,7 +190,6 @@ function open_exclusive(path::String;
     file = tryopen_exclusive(path, mode)
     file === nothing || return file
     if !wait_for_lock
-        @info "not waiting for lock"
         if file === nothing && stale_age > 0
             if stale_age > 0 && stale_pidfile(path, stale_age)
                 @warn "attempting to remove probably stale pidfile" path=path

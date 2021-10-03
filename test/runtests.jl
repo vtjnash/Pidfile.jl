@@ -29,6 +29,7 @@ try
 # now start tests definitions:
 
 @testset "validpid" begin
+    @info "validpid"
     mypid = getpid() % Cuint
     @test isvalidpid(gethostname(), mypid)
     @test isvalidpid("", mypid)
@@ -44,6 +45,7 @@ try
 end
 
 @testset "write_pidfile" begin
+    @info "write_pidfile"
     buf = IOBuffer()
     pid, host, age = 0, "", 123
     pid2, host2, age2 = parse_pidfile(MemoryFile(seekstart(buf), time() - age))
@@ -81,6 +83,7 @@ end
 end
 
 @testset "open_exclusive" begin
+    @info "open_exclusive"
     f = open_exclusive("pidfile")::File
     try
         # check that f is open and read-writable
@@ -173,14 +176,14 @@ end
 
     t1 = time()
     @test_throws Pidfile.PidLockFailedError open_exclusive("pidfile", wait_for_lock=false)
-    @test time() ≈ t1 atol=0.1
+    @test time()-t1 ≈ 0 atol=0.3
 
     sleep(1)
     @test !deleted
 
     t1 = time()
     @test_throws Pidfile.PidLockFailedError open_exclusive("pidfile", wait_for_lock=false)
-    @test time() ≈ t1 atol=0.1
+    @test time()-t1 ≈ 0 atol=0.3
 
     sleep(2)
     @test deleted
@@ -193,6 +196,7 @@ end
 end
 
 @testset "open_exclusive: break lock" begin
+    @info "open_exclusive: break lock"
     # test for stale_age
     t = @elapsed f = open_exclusive("pidfile", poll_interval=3, stale_age=10)::File
     try
@@ -216,6 +220,7 @@ end
 end
 
 @testset "mkpidlock non-blocking stale lock break" begin
+    @info "mkpidlock non-blocking stale lock break"
     # mkpidlock with no waiting
     lockf = mkpidlock("pidfile-2", wait_for_lock=false)
 
@@ -225,10 +230,11 @@ end
 
     sleep(10)
     t = @elapsed mkpidlock("pidfile-2", wait_for_lock=false, stale_age=.1, poll_interval=1)
-    @test t ≈ 0 atol=0.1
+    @test t ≈ 0 atol=0.3
 end
             
 @testset "mkpidlock" begin
+    @info "mkpidlock"
     lockf = mkpidlock("pidfile")
     waittask = @async begin
         sleep(3)
