@@ -202,7 +202,7 @@ function open_exclusive(path::String;
             file = tryopen_exclusive(path, mode)
         end
         if file === nothing
-            throw(PidLockFailedError("Failed to get lock file"))
+            error("Failed to get pidfile lock for $(repr(path)).")
         else
             return file
         end
