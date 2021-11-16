@@ -160,8 +160,8 @@ end
     rm("pidfile")
     wait(rmtask)
 
-    @info "test for wait_for_lock == false cases"
-    f = open_exclusive("pidfile", wait_for_lock=false)
+    @info "test for wait == false cases"
+    f = open_exclusive("pidfile", wait=false)
     @test isfile("pidfile")
     close(f)
     rm("pidfile")
@@ -175,21 +175,21 @@ end
     end
 
     t1 = time()
-    @test_throws Pidfile.PidLockFailedError open_exclusive("pidfile", wait_for_lock=false)
-    @test time()-t1 ≈ 0 atol=0.3
+    @test_throws Pidfile.PidLockFailedError open_exclusive("pidfile", wait=false)
+    @test time()-t1 ≈ 0 atol=1
 
     sleep(1)
     @test !deleted
 
     t1 = time()
-    @test_throws Pidfile.PidLockFailedError open_exclusive("pidfile", wait_for_lock=false)
-    @test time()-t1 ≈ 0 atol=0.3
+    @test_throws Pidfile.PidLockFailedError open_exclusive("pidfile", wait=false)
+    @test time()-t1 ≈ 0 atol=1
 
     sleep(2)
     @test deleted
-    t = @elapsed f2 = open_exclusive("pidfile", wait_for_lock=false)::File
+    t = @elapsed f2 = open_exclusive("pidfile", wait=false)::File
     @test isfile("pidfile")
-    @test t ≈ 0 atol=0.1
+    @test t ≈ 0 atol=1
     close(f)
     close(f2)
     rm("pidfile")
@@ -222,15 +222,15 @@ end
 @testset "mkpidlock non-blocking stale lock break" begin
     @info "mkpidlock non-blocking stale lock break"
     # mkpidlock with no waiting
-    lockf = mkpidlock("pidfile-2", wait_for_lock=false)
+    lockf = mkpidlock("pidfile-2", wait=false)
 
     sleep(1)
-    t = @elapsed @test_throws Pidfile.PidLockFailedError mkpidlock("pidfile-2", wait_for_lock=false, stale_age=1, poll_interval=1)
-    @test t ≈ 0 atol=0.1
+    t = @elapsed @test_throws Pidfile.PidLockFailedError mkpidlock("pidfile-2", wait=false, stale_age=1, poll_interval=1)
+    @test t ≈ 0 atol=1
 
     sleep(10)
-    t = @elapsed mkpidlock("pidfile-2", wait_for_lock=false, stale_age=.1, poll_interval=1)
-    @test t ≈ 0 atol=0.3
+    t = @elapsed mkpidlock("pidfile-2", wait=false, stale_age=.1, poll_interval=1)
+    @test t ≈ 0 atol=1
 end
             
 @testset "mkpidlock" begin
@@ -244,8 +244,8 @@ end
     end
 
     # mkpidlock with no waiting
-    t = @elapsed @test_throws Pidfile.PidLockFailedError mkpidlock("pidfile", wait_for_lock=false)
-    @test t ≈ 0 atol=0.1
+    t = @elapsed @test_throws Pidfile.PidLockFailedError mkpidlock("pidfile", wait=false)
+    @test t ≈ 0 atol=1
 
     t = @elapsed lockf1 = mkpidlock("pidfile")
     @test t > 2
