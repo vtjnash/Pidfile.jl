@@ -176,7 +176,7 @@ end
     open_exclusive(path::String; mode, poll_interval, stale_age) :: File
 
 Create a new a file for read-write advisory-exclusive access.
-If `wait` is `false` then throw PidLockFailedError if the lock files
+If `wait` is `false` then error out if the lock files exist
 otherwise block until we get the lock.
 
 For a description of the keyword arguments, see [`mkpidlock`](@ref).
@@ -220,7 +220,7 @@ function open_exclusive(path::String;
         # now try again to create it
         file = tryopen_exclusive(path, mode)
         file === nothing || return file
-        wait(t) # sleep for a bit before trying again
+        Base.wait(t) # sleep for a bit before trying again
         if stale_age > 0 && stale_pidfile(path, stale_age)
             # if the file seems stale, try to remove it before attempting again
             # set stale_age to zero so we won't attempt again, even if the attempt fails

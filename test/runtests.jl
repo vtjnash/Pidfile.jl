@@ -175,14 +175,14 @@ end
     end
 
     t1 = time()
-    @test_throws Pidfile.PidLockFailedError open_exclusive("pidfile", wait=false)
+    @test_throws ErrorException open_exclusive("pidfile", wait=false)
     @test time()-t1 ≈ 0 atol=1
 
     sleep(1)
     @test !deleted
 
     t1 = time()
-    @test_throws Pidfile.PidLockFailedError open_exclusive("pidfile", wait=false)
+    @test_throws ErrorException open_exclusive("pidfile", wait=false)
     @test time()-t1 ≈ 0 atol=1
 
     sleep(2)
@@ -225,7 +225,7 @@ end
     lockf = mkpidlock("pidfile-2", wait=false)
 
     sleep(1)
-    t = @elapsed @test_throws Pidfile.PidLockFailedError mkpidlock("pidfile-2", wait=false, stale_age=1, poll_interval=1)
+    t = @elapsed @test_throws ErrorException mkpidlock("pidfile-2", wait=false, stale_age=1, poll_interval=1)
     @test t ≈ 0 atol=1
 
     sleep(10)
@@ -244,7 +244,7 @@ end
     end
 
     # mkpidlock with no waiting
-    t = @elapsed @test_throws Pidfile.PidLockFailedError mkpidlock("pidfile", wait=false)
+    t = @elapsed @test_throws ErrorException mkpidlock("pidfile", wait=false)
     @test t ≈ 0 atol=1
 
     t = @elapsed lockf1 = mkpidlock("pidfile")
