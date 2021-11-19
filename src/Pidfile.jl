@@ -21,7 +21,7 @@ using Base.Sys: iswindows
 Create a pidfile lock for the path "at" for the current process
 or the process identified by pid or proc. Can take a function to execute once locked,
 for usage in `do` blocks, after which the lock will be automatically closed. If the lock fails
-and `wait` is false, then PidLockFailedError is thrown.
+and `wait` is false, then an error is thrown.
 
 Optional keyword arguments:
  - `mode`: file access mode (modified by the process umask). Defaults to world-readable.
@@ -30,13 +30,9 @@ Optional keyword arguments:
      The file won't be deleted until 25x longer than this if the pid in the file appears that it may be valid.
      By default this is disabled (`stale_age` = 0), but a typical recommended value would be about 3-5x an
      estimated normal completion time.
- - `wait`: If true, block until we get the lock, if false, throw PidLockFailedError if lock fails.
+ - `wait`: If true, block until we get the lock, if false, raise error if lock fails.
 """
 function mkpidlock end
-
-struct PidLockFailedError <: Exception
-    msg::String
-end
 
 mutable struct LockMonitor
     path::String
@@ -147,9 +143,8 @@ Helper function for `open_exclusive` for deciding if a pidfile is stale.
 """
 function stale_pidfile(path::String, stale_age::Real)
     pid, hostname, age = parse_pidfile(path)
-    if age < -stale_age
-        @warn "filesystem time skew detected" path=path
-    elseif age > stale_age
+    age < 0 && @warn "filesystem time skew detected" path=path
+    if age > stale_age
         if (age > stale_age * 25) || !isvalidpid(hostname, pid)
             return true
         end
