@@ -25,9 +25,11 @@ old_umask = umask(0o002)
 try
     mktempdir() do dir
         cd(dir) do
+
 # now start tests definitions:
 
 @testset "validpid" begin
+    @info "validpid"
     mypid = getpid() % Cuint
     @test isvalidpid(gethostname(), mypid)
     @test isvalidpid("", mypid)
@@ -43,6 +45,7 @@ try
 end
 
 @testset "write_pidfile" begin
+    @info "write_pidfile"
     buf = IOBuffer()
     pid, host, age = 0, "", 123
     pid2, host2, age2 = parse_pidfile(MemoryFile(seekstart(buf), time() - age))
@@ -80,6 +83,7 @@ end
 end
 
 @testset "open_exclusive" begin
+    @info "open_exclusive"
     f = open_exclusive("pidfile")::File
     try
         # check that f is open and read-writable
@@ -155,9 +159,44 @@ end
     end
     rm("pidfile")
     wait(rmtask)
+
+    @info "test for wait == false cases"
+    f = open_exclusive("pidfile", wait=false)
+    @test isfile("pidfile")
+    close(f)
+    rm("pidfile")
+
+    f = open_exclusive("pidfile")::File
+    deleted = false
+    rmtask = @async begin
+        sleep(2)
+        rm("pidfile")
+        deleted = true
+    end
+
+    t1 = time()
+    @test_throws ErrorException open_exclusive("pidfile", wait=false)
+    @test time()-t1 ≈ 0 atol=1
+
+    sleep(1)
+    @test !deleted
+
+    t1 = time()
+    @test_throws ErrorException open_exclusive("pidfile", wait=false)
+    @test time()-t1 ≈ 0 atol=1
+
+    sleep(2)
+    @test deleted
+    t = @elapsed f2 = open_exclusive("pidfile", wait=false)::File
+    @test isfile("pidfile")
+    @test t ≈ 0 atol=1
+    close(f)
+    close(f2)
+    rm("pidfile")
 end
 
 @testset "open_exclusive: break lock" begin
+    @info "open_exclusive: break lock"
     # test for stale_age
     t = @elapsed f = open_exclusive("pidfile", poll_interval=3, stale_age=10)::File
     try
@@ -180,12 +219,22 @@ end
     rm("pidfile")
 end
 
-@testset "open_exclusive: other errors" begin
-    error = @test_throws(Base.IOError, open_exclusive("nonexist/folder"))
-    @test error.value.code == Base.UV_ENOENT
-end
+@testset "mkpidlock non-blocking stale lock break" begin
+    @info "mkpidlock non-blocking stale lock break"
+    # mkpidlock with no waiting
+    lockf = mkpidlock("pidfile-2", wait=false)
 
+    sleep(1)
+    t = @elapsed @test_throws ErrorException mkpidlock("pidfile-2", wait=false, stale_age=1, poll_interval=1)
+    @test t ≈ 0 atol=1
+
+    sleep(10)
+    t = @elapsed mkpidlock("pidfile-2", wait=false, stale_age=.1, poll_interval=1)
+    @test t ≈ 0 atol=1
+end
+            
 @testset "mkpidlock" begin
+    @info "mkpidlock"
     lockf = mkpidlock("pidfile")
     waittask = @async begin
         sleep(3)
@@ -193,6 +242,11 @@ end
             return close(lockf)
         end
     end
+
+    # mkpidlock with no waiting
+    t = @elapsed @test_throws ErrorException mkpidlock("pidfile", wait=false)
+    @test t ≈ 0 atol=1
+
     t = @elapsed lockf1 = mkpidlock("pidfile")
     @test t > 2
     @test istaskdone(waittask) && fetch(waittask)
