@@ -143,7 +143,7 @@ Helper function for `open_exclusive` for deciding if a pidfile is stale.
 """
 function stale_pidfile(path::String, stale_age::Real)
     pid, hostname, age = parse_pidfile(path)
-    age < 0 && @warn "filesystem time skew detected" path=path
+    age < -stale_age && @warn "filesystem time skew detected" path=path
     if age > stale_age
         if (age > stale_age * 25) || !isvalidpid(hostname, pid)
             return true
