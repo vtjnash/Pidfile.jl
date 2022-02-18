@@ -25,8 +25,9 @@ or the process identified by pid or proc. Can take a function to execute once lo
 for usage in `do` blocks, after which the lock will be automatically closed. If the lock fails
 and `wait` is false, then an error is thrown.
 
-The lock will be released by either `close` or a `finalizer`, so make sure the
-return value is live through the end of the critical section of your program.
+The lock will be released by either `close`, a `finalizer`, or shortly after `proc` exits.
+Make sure the return value is live through the end of the critical section of
+your program, so the `finalizer` does not reclaim it early.
 
 Optional keyword arguments:
  - `mode`: file access mode (modified by the process umask). Defaults to world-readable.
@@ -86,6 +87,18 @@ function mkpidlock(f::Function, at::String, pid::Cint; kwopts...)
     end
 end
 
+if VERSION >= v"1.1" # getpid(::Proc) added
+function mkpidlock(at::String, proc::Process; kwopts...)
+    lock = mkpidlock(at, getpid(proc); kwopts...)
+    closer = @async begin
+        wait(proc)
+        close(lock)
+    end
+    isdefined(Base, :errormonitor) && Base.errormonitor(closer)
+    return lock
+end
+end
+
 """
     Base.touch(::Pidfile.LockMonitor)
 
@@ -106,18 +119,6 @@ else
         f
     end
 end
-
-# TODO: enable this when we update libuv
-#Base.getpid(proc::Process) = ccall(:uv_process_get_pid, Cint, (Ptr{Void},), proc.handle)
-#function mkpidlock(at::String, proc::Process; kwopts...)
-#    lock = mkpidlock(at, getpid(proc))
-#    @schedule begin
-#        wait(proc)
-#        close(lock)
-#    end
-#    return lock
-#end
-
 
 """
     write_pidfile(io, pid)

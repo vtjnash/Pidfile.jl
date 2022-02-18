@@ -319,6 +319,24 @@ end
     close(lockf)
 end
 
+@assert !ispath("pidfile")
+@testset "mkpidlock for child" begin
+if VERSION >= v"1.1"
+    proc = open(`cat`, "w", devnull)
+    lock = mkpidlock("pidfile", proc)
+    @test isopen(lock.fd)
+    @test isfile("pidfile")
+    close(proc)
+    @test success(proc)
+    sleep(1) # give some time for the other task to finish releasing the lock resources
+    @test !isopen(lock.fd)
+    @test !isfile("pidfile")
+
+    error = @test_throws Base.IOError mkpidlock("pidfile", proc)
+    @test error.value.code == Base.UV_ESRCH
+end
+end
+
 @assert !ispath("pidfile-2")
 @testset "mkpidlock non-blocking stale lock break" begin
     # mkpidlock with no waiting
