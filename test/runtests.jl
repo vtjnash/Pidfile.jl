@@ -82,6 +82,7 @@ end
     end
 end
 
+@assert !ispath("pidfile")
 @testset "open_exclusive" begin
     @info "open_exclusive"
     f = open_exclusive("pidfile")::File
@@ -160,43 +161,44 @@ end
     rm("pidfile")
     wait(rmtask)
 
-    @info "test for wait == false cases"
-    f = open_exclusive("pidfile", wait=false)
-    @test isfile("pidfile")
-    close(f)
-    rm("pidfile")
-
-    f = open_exclusive("pidfile")::File
-    deleted = false
-    rmtask = @async begin
-        sleep(2)
+    @testset "test for wait == false cases" begin
+        f = open_exclusive("pidfile", wait=false)
+        @test isfile("pidfile")
+        close(f)
         rm("pidfile")
-        deleted = true
+
+        f = open_exclusive("pidfile")::File
+        deleted = false
+        rmtask = @async begin
+            sleep(2)
+            @test Pidfile.tryrmopenfile("pidfile")
+            deleted = true
+        end
+
+        t1 = time()
+        @test_throws ErrorException open_exclusive("pidfile", wait=false)
+        @test time()-t1 ≈ 0 atol=1
+
+        sleep(1)
+        @test !deleted
+
+        t1 = time()
+        @test_throws ErrorException open_exclusive("pidfile", wait=false)
+        @test time()-t1 ≈ 0 atol=1
+
+        wait(rmtask)
+        @test deleted
+        t = @elapsed f2 = open_exclusive("pidfile", wait=false)::File
+        @test isfile("pidfile")
+        @test t ≈ 0 atol=1
+        close(f)
+        close(f2)
+        rm("pidfile")
     end
-
-    t1 = time()
-    @test_throws ErrorException open_exclusive("pidfile", wait=false)
-    @test time()-t1 ≈ 0 atol=1
-
-    sleep(1)
-    @test !deleted
-
-    t1 = time()
-    @test_throws ErrorException open_exclusive("pidfile", wait=false)
-    @test time()-t1 ≈ 0 atol=1
-
-    sleep(2)
-    @test deleted
-    t = @elapsed f2 = open_exclusive("pidfile", wait=false)::File
-    @test isfile("pidfile")
-    @test t ≈ 0 atol=1
-    close(f)
-    close(f2)
-    rm("pidfile")
 end
 
+@assert !ispath("pidfile")
 @testset "open_exclusive: break lock" begin
-    @info "open_exclusive: break lock"
     # test for stale_age
     t = @elapsed f = open_exclusive("pidfile", poll_interval=3, stale_age=10)::File
     try
@@ -232,7 +234,8 @@ end
     t = @elapsed mkpidlock("pidfile-2", wait=false, stale_age=.1, poll_interval=1)
     @test t ≈ 0 atol=1
 end
-            
+
+@assert !ispath("pidfile")
 @testset "mkpidlock" begin
     @info "mkpidlock"
     lockf = mkpidlock("pidfile")
