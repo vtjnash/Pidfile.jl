@@ -34,9 +34,12 @@ Optional keyword arguments:
 """
 function mkpidlock end
 
+macro constfield(ex) esc(VERSION >= v"1.8-" ? Expr(:const, ex) : ex) end
+
+# mutable only because we want to add a finalizer
 mutable struct LockMonitor
-    path::String
-    fd::File
+    @constfield path::String
+    @constfield fd::File
 
     global function mkpidlock(at::String, pid::Cint; kwopts...)
         local lock
