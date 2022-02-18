@@ -54,8 +54,8 @@ mutable struct LockMonitor
             lock = new(at, fd)
             finalizer(close, lock)
         catch ex
-            close(fd)
             rm(at)
+            close(fd)
             rethrow(ex)
         end
         return lock
@@ -273,11 +273,30 @@ Release a pidfile lock.
 """
 function Base.close(lock::LockMonitor)
     isopen(lock.fd) || return false
-    havelock = samefile(stat(lock.fd), stat(lock.path))
-    close(lock.fd)
-    if havelock # try not to delete someone else's lock
-        rm(lock.path)
+    removed = false
+    path = lock.path
+    pathstat = try
+            # Windows sometimes likes to return EACCES here,
+            # if the path is in the process of being deleted
+            stat(path)
+        catch ex
+            ex isa IOError || rethrow()
+            removed = ex
+            nothing
+        end
+    if pathstat !== nothing && samefile(stat(lock.fd), pathstat)
+        # try not to delete someone else's lock
+        try
+            rm(path)
+            removed = true
+        catch ex
+            ex isa IOError || rethrow()
+            removed = ex
+        end
     end
+    close(lock.fd)
+    havelock = removed === true
+    havelock || @warn "failed to remove pidfile on close" path=path removed=removed
     return havelock
 end
 
