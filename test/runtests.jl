@@ -29,7 +29,6 @@ try
 # now start tests definitions:
 
 @testset "validpid" begin
-    @info "validpid"
     mypid = getpid() % Cuint
     @test isvalidpid(gethostname(), mypid)
     @test isvalidpid("", mypid)
@@ -45,7 +44,6 @@ try
 end
 
 @testset "write_pidfile" begin
-    @info "write_pidfile"
     buf = IOBuffer()
     pid, host, age = 0, "", 123
     pid2, host2, age2 = parse_pidfile(MemoryFile(seekstart(buf), time() - age))
@@ -84,7 +82,6 @@ end
 
 @assert !ispath("pidfile")
 @testset "open_exclusive" begin
-    @info "open_exclusive"
     f = open_exclusive("pidfile")::File
     try
         # check that f is open and read-writable
@@ -108,6 +105,7 @@ end
         rm("pidfile")
         deleted = true
     end
+    isdefined(Base, :errormonitor) && Base.errormonitor(rmtask)
     @test isfile("pidfile")
     @test !deleted
 
@@ -144,6 +142,7 @@ end
         rm("pidfile")
         deleted = true
     end
+    isdefined(Base, :errormonitor) && Base.errormonitor(rmtask)
     @test isfile("pidfile")
     @test !deleted
     # open the pidfile again (should wait for it to disappear first)
@@ -174,6 +173,7 @@ end
             @test Pidfile.tryrmopenfile("pidfile")
             deleted = true
         end
+        isdefined(Base, :errormonitor) && Base.errormonitor(rmtask)
 
         t1 = time()
         @test_throws ErrorException open_exclusive("pidfile", wait=false)
@@ -222,7 +222,6 @@ end
 end
 
 @testset "mkpidlock non-blocking stale lock break" begin
-    @info "mkpidlock non-blocking stale lock break"
     # mkpidlock with no waiting
     lockf = mkpidlock("pidfile-2", wait=false)
 
@@ -237,7 +236,6 @@ end
 
 @assert !ispath("pidfile")
 @testset "mkpidlock" begin
-    @info "mkpidlock"
     lockf = mkpidlock("pidfile")
     waittask = @async begin
         sleep(3)
@@ -245,6 +243,7 @@ end
             return close(lockf)
         end
     end
+    isdefined(Base, :errormonitor) && Base.errormonitor(waittask)
 
     # mkpidlock with no waiting
     t = @elapsed @test_throws ErrorException mkpidlock("pidfile", wait=false)
@@ -281,6 +280,7 @@ end
             push!(lock_times, t)
         end
     end
+    isdefined(Base, :errormonitor) && Base.errormonitor(t_loop)
     mkpidlock("do_block_pidfile") do
         sleep(3)
     end
