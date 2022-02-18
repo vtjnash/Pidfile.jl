@@ -10,7 +10,7 @@ using Base:
 
 using Base.Filesystem:
     File, open, JL_O_CREAT, JL_O_RDWR, JL_O_RDONLY, JL_O_EXCL,
-    samefile
+    rename, samefile, path_separator
 
 using FileWatching: watch_file
 using Base.Sys: iswindows
@@ -43,7 +43,9 @@ mutable struct LockMonitor
 
     global function mkpidlock(at::String, pid::Cint; kwopts...)
         local lock
-        at = abspath(at)
+        atdir, atname = splitdir(at)
+        isempty(atdir) && (atdir = pwd())
+        at = realpath(atdir) * path_separator * atname
         fd = open_exclusive(at; kwopts...)
         try
             write_pidfile(fd, pid)
