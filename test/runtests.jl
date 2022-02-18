@@ -221,6 +221,14 @@ end
     rm("pidfile")
 end
 
+@testset "open_exclusive: other errors" begin
+    error = @test_throws(Base.IOError, open_exclusive("nonexist/folder"))
+    @test error.value.code == Base.UV_ENOENT
+
+    error = @test_throws(Base.IOError, open_exclusive(""))
+    @test error.value.code == Base.UV_ENOENT
+end
+
 @testset "mkpidlock non-blocking stale lock break" begin
     # mkpidlock with no waiting
     lockf = mkpidlock("pidfile-2", wait=false)
