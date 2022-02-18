@@ -25,6 +25,9 @@ or the process identified by pid or proc. Can take a function to execute once lo
 for usage in `do` blocks, after which the lock will be automatically closed. If the lock fails
 and `wait` is false, then an error is thrown.
 
+The lock will be released by either `close` or a `finalizer`, so make sure the
+return value is live through the end of the critical section of your program.
+
 Optional keyword arguments:
  - `mode`: file access mode (modified by the process umask). Defaults to world-readable.
  - `poll_interval`: Specify the maximum time to between attempts (if `watch_file` doesn't work)
@@ -32,6 +35,8 @@ Optional keyword arguments:
      The file won't be deleted until 25x longer than this if the pid in the file appears that it may be valid.
      By default this is disabled (`stale_age` = 0), but a typical recommended value would be about 3-5x an
      estimated normal completion time.
+ - `refresh`: Keeps a lock from becoming stale by updating the mtime every interval of time that passes.
+     By default, this is set to `stale_age/2`, which is the recommended value.
  - `wait`: If true, block until we get the lock, if false, raise error if lock fails.
 """
 function mkpidlock end
@@ -42,16 +47,23 @@ macro constfield(ex) esc(VERSION >= v"1.8-" ? Expr(:const, ex) : ex) end
 mutable struct LockMonitor
     @constfield path::String
     @constfield fd::File
+    @constfield update::Union{Nothing,Timer}
 
-    global function mkpidlock(at::String, pid::Cint; kwopts...)
+    global function mkpidlock(at::String, pid::Cint; stale_age::Real=0, refresh::Real=stale_age/2, kwopts...)
         local lock
         atdir, atname = splitdir(at)
         isempty(atdir) && (atdir = pwd())
         at = realpath(atdir) * path_separator * atname
-        fd = open_exclusive(at; kwopts...)
+        fd = open_exclusive(at; stale_age=stale_age, kwopts...)
+        update = nothing
         try
             write_pidfile(fd, pid)
-            lock = new(at, fd)
+            if refresh > 0
+                # N.b.: to ensure our finalizer works we are careful to capture
+                # `fd` here instead of `lock`.
+                update = Timer(t -> isopen(t) && touch(fd), refresh; interval=refresh)
+            end
+            lock = new(at, fd, update)
             finalizer(close, lock)
         catch ex
             rm(at)
@@ -71,6 +83,27 @@ function mkpidlock(f::Function, at::String, pid::Cint; kwopts...)
         return f()
     finally
         close(lock)
+    end
+end
+
+"""
+    Base.touch(::Pidfile.LockMonitor)
+
+Update the `mtime` on the lock, to indicate it is still fresh.
+
+See also the `refresh` keyword in the [`mkpidlock`](@ref) constructor.
+"""
+Base.touch(lock::LockMonitor) = (touch(lock.fd); lock)
+
+if hasmethod(Base, Tuple{File})
+    # added in Julia v1.9
+    const touch = Base.touch
+else
+    touch(f) = Base.touch(f)
+    function touch(f::File)
+        now = time()
+        Base.Filesystem.futime(f, now, now)
+        f
     end
 end
 
@@ -272,6 +305,8 @@ end
 Release a pidfile lock.
 """
 function Base.close(lock::LockMonitor)
+    update = lock.update
+    update === nothing || close(update)
     isopen(lock.fd) || return false
     removed = false
     path = lock.path

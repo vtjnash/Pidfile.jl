@@ -232,6 +232,7 @@ end
 @assert !ispath("pidfile")
 @testset "mkpidlock" begin
     lockf = mkpidlock("pidfile")
+    @test lockf.update === nothing
     waittask = @async begin
         sleep(3)
         cd(homedir()) do
@@ -270,6 +271,7 @@ end
     t_loop = @async begin
         for idx in 1:100
             t = @elapsed mkpidlock("do_block_pidfile") do
+                # nothing
             end
             sleep(0.01)
             push!(lock_times, t)
@@ -284,16 +286,51 @@ end
     @test minimum(lock_times) < 1
 end
 
+@assert !ispath("pidfile")
+@testset "mkpidlock update" begin
+    lockf = mkpidlock("pidfile")
+    @test lockf.update === nothing
+    new = mtime(lockf.fd)
+    @test new ≈ time() atol=1
+    sleep(1)
+    @test mtime(lockf.fd) == new
+    touch(lockf)
+    old, new = new, mtime(lockf.fd)
+    @test new != old
+    @test new ≈ time() atol=1
+    close(lockf)
+
+    lockf = mkpidlock("pidfile"; refresh=0.2)
+    new = mtime(lockf.fd)
+    @test new ≈ time() atol=1
+    for i = 1:10
+        sleep(0.5)
+        old, new = new, mtime(lockf.fd)
+        @test new != old
+        @test new ≈ time() atol=1
+    end
+    @test isopen(lockf.update::Timer)
+    close(lockf)
+    @test !isopen(lockf.update::Timer)
+
+    lockf = mkpidlock("pidfile"; stale_age=10)
+    @test lockf.update isa Timer
+    close(lockf.update) # simulate a finalizer running in an undefined order
+    close(lockf)
+end
+
+@assert !ispath("pidfile-2")
 @testset "mkpidlock non-blocking stale lock break" begin
     # mkpidlock with no waiting
     lockf = mkpidlock("pidfile-2", wait=false)
+    @test lockf.update === nothing
 
     sleep(1)
-    t = @elapsed @test_throws ErrorException mkpidlock("pidfile-2", wait=false, stale_age=1, poll_interval=1)
+    t = @elapsed @test_throws ErrorException mkpidlock("pidfile-2", wait=false, stale_age=1, poll_interval=1, refresh=0)
     @test t ≈ 0 atol=1
 
     sleep(5)
-    t = @elapsed (lockf2 = mkpidlock("pidfile-2", wait=false, stale_age=.1, poll_interval=1))
+    t = @elapsed (lockf2 = mkpidlock("pidfile-2", wait=false, stale_age=.1, poll_interval=1, refresh=0))
     @test t ≈ 0 atol=1
     close(lockf)
     close(lockf2)
