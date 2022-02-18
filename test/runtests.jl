@@ -110,7 +110,7 @@ end
     @test !deleted
 
     # open the pidfile again (should wait for it to disappear first)
-    t = @elapsed f2 = open_exclusive("pidfile")::File
+    t = @elapsed f2 = open_exclusive(joinpath(dir, "pidfile"))::File
     try
         @test deleted
         @test isfile("pidfile")
@@ -229,19 +229,6 @@ end
     @test error.value.code == Base.UV_ENOENT
 end
 
-@testset "mkpidlock non-blocking stale lock break" begin
-    # mkpidlock with no waiting
-    lockf = mkpidlock("pidfile-2", wait=false)
-
-    sleep(1)
-    t = @elapsed @test_throws ErrorException mkpidlock("pidfile-2", wait=false, stale_age=1, poll_interval=1)
-    @test t ≈ 0 atol=1
-
-    sleep(10)
-    t = @elapsed mkpidlock("pidfile-2", wait=false, stale_age=.1, poll_interval=1)
-    @test t ≈ 0 atol=1
-end
-
 @assert !ispath("pidfile")
 @testset "mkpidlock" begin
     lockf = mkpidlock("pidfile")
@@ -257,7 +244,7 @@ end
     t = @elapsed @test_throws ErrorException mkpidlock("pidfile", wait=false)
     @test t ≈ 0 atol=1
 
-    t = @elapsed lockf1 = mkpidlock("pidfile")
+    t = @elapsed lockf1 = mkpidlock(joinpath(dir, "pidfile"))
     @test t > 2
     @test istaskdone(waittask) && fetch(waittask)
     @test !close(lockf)
@@ -295,6 +282,21 @@ end
     wait(t_loop)
     @test maximum(lock_times) > 2
     @test minimum(lock_times) < 1
+end
+
+@testset "mkpidlock non-blocking stale lock break" begin
+    # mkpidlock with no waiting
+    lockf = mkpidlock("pidfile-2", wait=false)
+
+    sleep(1)
+    t = @elapsed @test_throws ErrorException mkpidlock("pidfile-2", wait=false, stale_age=1, poll_interval=1)
+    @test t ≈ 0 atol=1
+
+    sleep(5)
+    t = @elapsed (lockf2 = mkpidlock("pidfile-2", wait=false, stale_age=.1, poll_interval=1))
+    @test t ≈ 0 atol=1
+    close(lockf)
+    close(lockf2)
 end
 
 end; end # cd(tempdir)
