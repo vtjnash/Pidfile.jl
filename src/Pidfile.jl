@@ -8,6 +8,8 @@ using Base:
     IOError, UV_EEXIST, UV_ESRCH,
     Process
 
+using Base.Libc: rand
+
 using Base.Filesystem:
     File, open, JL_O_CREAT, JL_O_RDWR, JL_O_RDONLY, JL_O_EXCL,
     rename, samefile, path_separator
@@ -193,11 +195,7 @@ function open_exclusive(path::String;
         if file === nothing && stale_age > 0
             if stale_age > 0 && stale_pidfile(path, stale_age)
                 @warn "attempting to remove probably stale pidfile" path=path
-                try
-                    rm(path)
-                catch ex
-                    isa(ex, IOError) || rethrow(ex)
-                end
+                tryrmopenfile(path)
             end
             file = tryopen_exclusive(path, mode)
         end
@@ -226,12 +224,45 @@ function open_exclusive(path::String;
             # set stale_age to zero so we won't attempt again, even if the attempt fails
             stale_age -= stale_age
             @warn "attempting to remove probably stale pidfile" path=path
-            try
-                rm(path)
-            catch ex
-                isa(ex, IOError) || rethrow(ex)
-            end
+            tryrmopenfile(path)
         end
+    end
+end
+
+function _rand_filename(len::Int=4) # modified from Base.Libc
+    slug = Base.StringVector(len)
+    chars = b"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    for i = 1:len
+        slug[i] = chars[(Libc.rand() % length(chars)) + 1]
+    end
+    return String(slug)
+end
+
+function tryrmopenfile(path::String)
+    # Deleting open file on Windows is a bit hard
+    # if we want to reuse the name immediately after:
+    # we need to first rename it, then delete it.
+    if Sys.iswindows()
+        try
+            local rmpath
+            rmdir, rmname = splitdir(path)
+            while true
+                rmpath = string(rmdir, isempty(rmdir) ? "" : path_separator,
+                    "\$", _rand_filename(), rmname, ".deleted")
+                ispath(rmpath) || break
+            end
+            rename(path, rmpath)
+            path = rmpath
+        catch ex
+            isa(ex, IOError) || rethrow(ex)
+        end
+    end
+    return try
+        rm(path)
+        true
+    catch ex
+        isa(ex, IOError) || rethrow(ex)
+        false
     end
 end
 

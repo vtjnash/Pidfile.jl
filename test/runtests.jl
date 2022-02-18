@@ -258,11 +258,7 @@ end
 
     # test manual breakage of the lock
     # is correctly handled
-    if iswindows()
-        mv("pidfile", "xpidfile")
-    else
-        rm("pidfile")
-    end
+    @test Pidfile.tryrmopenfile("pidfile")
     t = @elapsed lockf3 = mkpidlock("pidfile")
     @test t < 2
     @test isopen(lockf2.fd)
@@ -271,9 +267,6 @@ end
     @test isfile("pidfile")
     @test close(lockf3)
     @test !isfile("pidfile")
-    if iswindows()
-        rm("xpidfile")
-    end
 
     # Just for coverage's sake, run a test with do-block syntax
     lock_times = Float64[]
