@@ -25,4 +25,5 @@ Pidfile.write_pidfile
 Pidfile.parse_pidfile
 Pidfile.stale_pidfile
 Pidfile.isvalidpid
+Base.touch(::Pidfile.LockMonitor)
 ```
