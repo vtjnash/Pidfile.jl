@@ -108,7 +108,7 @@ See also the `refresh` keyword in the [`mkpidlock`](@ref) constructor.
 """
 Base.touch(lock::LockMonitor) = (touch(lock.fd); lock)
 
-if hasmethod(Base, Tuple{File})
+if hasmethod(Base.touch, Tuple{File})
     # added in Julia v1.9
     const touch = Base.touch
 else
