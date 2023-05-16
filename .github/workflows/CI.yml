@@ -15,10 +15,10 @@ jobs:
       fail-fast: false
       matrix:
         version:
-          - '1.0'
-          - '1.6'
-          - '1.7'
-          - 'nightly'
+          - '1.0' # old LTS (not yet broken)
+          - '1.6' # current LTS
+          - '1'   # current release
+          - 'nightly' # developement preview
         os:
           - ubuntu-latest
         arch:
